@@ -1,6 +1,7 @@
+import random
+
 DELAY_MIN = 4
 DELAY_MAX = 8
 
-RETRY_DELAY = 5
-
-QUEUE_INTERVAL = 1
+def random_delay():
+    return random.randint(DELAY_MIN, DELAY_MAX)

@@ -8,12 +8,14 @@ DisconnectReason
 const P = require("pino")
 const QRCode = require("qrcode")
 const fs = require("fs")
+const path = require("path")
 
 const ws = require("./websocket")
 
 let sock = null
 let status = "disconnected"
 let connecting = false
+
 
 async function connect(){
 
@@ -125,19 +127,20 @@ async function sendMessage(number,message){
 }
 
 
-async function sendDocument(number,path,caption){
+async function sendDocument(number,filePath){
 
     if(!sock) return
 
     const jid = number + "@s.whatsapp.net"
 
-    const buffer = fs.readFileSync(path)
+    const buffer = fs.readFileSync(filePath)
+
+    const filename = path.basename(filePath)
 
     await sock.sendMessage(jid,{
         document: buffer,
         mimetype:"application/pdf",
-        fileName:"invoice.pdf",
-        caption
+        fileName: filename
     })
 
 }
@@ -173,8 +176,7 @@ function handleCommand(data){
     if(data.type === "send_document"){
         sendDocument(
             data.number,
-            data.path,
-            data.caption
+            data.path
         )
     }
 
@@ -184,6 +186,7 @@ function handleCommand(data){
 
 }
 
+
 function sendStatus(){
 
     ws.send({
@@ -192,6 +195,7 @@ function sendStatus(){
     })
 
 }
+
 
 module.exports = {
     connect,

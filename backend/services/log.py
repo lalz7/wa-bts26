@@ -6,7 +6,7 @@ class Log(Base):
 
     __tablename__ = "log"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
     siswa_id = Column(Integer)
     nama = Column(String)
     kelas = Column(String)

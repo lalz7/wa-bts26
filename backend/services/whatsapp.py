@@ -11,18 +11,14 @@ async def send_message(number, message):
     })
 
 
-async def send_document(number, path, caption):
+async def send_document(number, path):
 
     abs_path = os.path.abspath(path)
-
-    filename = os.path.basename(abs_path)
 
     await manager.send_to_gateway({
         "type": "send_document",
         "number": number,
-        "path": abs_path,
-        "caption": caption,
-        "filename": filename
+        "path": abs_path
     })
 
 

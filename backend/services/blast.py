@@ -7,10 +7,10 @@ from database import SessionLocal
 from services import student
 from services import template
 from services import whatsapp
-
 from services.log import Log
 
 from core.websocket import manager
+from core.config import random_delay
 
 
 last_logs = []
@@ -55,7 +55,7 @@ async def process(data):
             )
 
             # ======================
-            # kirim pesan dulu
+            # kirim pesan
             # ======================
 
             await whatsapp.send_message(
@@ -63,20 +63,15 @@ async def process(data):
                 message
             )
 
-            await asyncio.sleep(1)
-
             # ======================
-            # kirim pdf
+            # kirim file (tanpa delay)
             # ======================
 
             if s.pdf:
 
-                filename = os.path.basename(s.pdf)
-
                 await whatsapp.send_document(
                     s.no_hp,
-                    s.pdf,
-                    filename
+                    s.pdf
                 )
 
             success += 1
@@ -142,7 +137,6 @@ async def process(data):
             })
 
         # progress
-
         await manager.send_to_frontend({
             "type": "blast_progress",
             "total": total,
@@ -151,7 +145,13 @@ async def process(data):
             "current": i + 1
         })
 
-        await asyncio.sleep(4)
+        # ======================
+        # delay random antar siswa
+        # ======================
+
+        delay = random_delay()
+
+        await asyncio.sleep(delay)
 
     last_logs = logs
 
@@ -191,16 +191,11 @@ async def retry():
                 "Retry pengiriman"
             )
 
-            await asyncio.sleep(1)
-
             if s.pdf:
-
-                filename = os.path.basename(s.pdf)
 
                 await whatsapp.send_document(
                     s.no_hp,
-                    s.pdf,
-                    filename
+                    s.pdf
                 )
 
             success += 1
@@ -217,8 +212,21 @@ async def retry():
             "current": i + 1
         })
 
-        await asyncio.sleep(4)
+        delay = random_delay()
+
+        await asyncio.sleep(delay)
 
     await manager.send_to_frontend({
         "type": "blast_done"
     })
+
+
+def get_logs():
+
+    db = SessionLocal()
+
+    logs = db.query(Log).order_by(Log.id.desc()).all()
+
+    db.close()
+
+    return logs

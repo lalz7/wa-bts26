@@ -15,7 +15,6 @@ return `
 Riwayat Blast
 </div>
 
-
 <div class="card p-6">
 
 <div class="flex justify-between mb-3">
@@ -32,7 +31,6 @@ Refresh
 
 </div>
 
-
 <div class="overflow-x-auto">
 
 <table class="table">
@@ -44,6 +42,7 @@ Refresh
 <th>Nama</th>
 <th>Kelas</th>
 <th>Status</th>
+<th>Waktu</th>
 </tr>
 
 </thead>
@@ -62,7 +61,6 @@ Refresh
 
 }
 
-
 function initLog(){
 
 loadLog()
@@ -71,7 +69,7 @@ onMessage((data)=>{
 
 if(data.type === "blast_log"){
 
-logs.push(data.data)
+logs.unshift(data.data)
 
 renderTable()
 
@@ -81,7 +79,6 @@ renderTable()
 
 }
 
-
 async function loadLog(){
 
 logs = await api("/log")
@@ -90,7 +87,6 @@ renderTable()
 
 }
 
-
 function renderTable(){
 
 table.innerHTML =
@@ -98,7 +94,7 @@ logs.map(l=>`
 
 <tr>
 
-<td>${l.id}</td>
+<td>${l.id || ""}</td>
 <td>${l.nama}</td>
 <td>${l.kelas}</td>
 
@@ -111,6 +107,8 @@ l.status === "success"
 ${l.status}
 </span>
 </td>
+
+<td>${l.waktu || ""}</td>
 
 </tr>
 
