@@ -1,6 +1,9 @@
-from sqlalchemy.orm import Session
 from sqlalchemy import Column, Integer, String
+
 from database import Base
+from database import SessionLocal
+
+from utils.phone import normalize_number
 
 
 class Siswa(Base):
@@ -11,51 +14,54 @@ class Siswa(Base):
     nama = Column(String)
     kelas = Column(String)
     no_hp = Column(String)
-    pdf = Column(String, nullable=True)
+    pdf = Column(String)
 
 
-# ========================
-# CRUD
-# ========================
+def get_all(db):
 
-def get_all(db: Session):
     return db.query(Siswa).all()
 
 
-def create_many(db: Session, siswa_list):
+def delete_all(db):
 
-    for s in siswa_list:
+    db.query(Siswa).delete()
+    db.commit()
 
-        exist = db.query(Siswa).filter(
-            Siswa.id == s["id"]
-        ).first()
 
-        if exist:
+def create_many(db, data):
 
-            exist.nama = s["nama"]
-            exist.kelas = s["kelas"]
-            exist.no_hp = s["no_hp"]
+    delete_all(db)
 
-        else:
+    for row in data:
 
-            siswa = Siswa(**s)
-            db.add(siswa)
+        siswa = Siswa(
+            id=row["id"],
+            nama=row["nama"],
+            kelas=row["kelas"],
+            no_hp=normalize_number(row["no_hp"])
+        )
+
+        db.add(siswa)
 
     db.commit()
 
 
-def update_pdf(db: Session, siswa_id, pdf):
+def update_pdf(db, id, file):
 
     siswa = db.query(Siswa).filter(
-        Siswa.id == siswa_id
+        Siswa.id == id
     ).first()
 
     if siswa:
-        siswa.pdf = pdf
-        db.commit()
+        siswa.pdf = file
 
+    db.commit()
+    
 
-def delete_all(db: Session):
+def delete(db, id):
 
-    db.query(Siswa).delete()
+    db.query(Siswa).filter(
+        Siswa.id == id
+    ).delete()
+
     db.commit()

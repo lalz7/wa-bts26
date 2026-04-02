@@ -104,7 +104,6 @@ async def whatsapp_send_document(data: dict):
         await whatsapp.send_document(
             data["number"],
             data["path"],
-            data["caption"]
         )
 
         return {"status": "sent"}
