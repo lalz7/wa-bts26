@@ -8,32 +8,54 @@ return `
 
 <div class="space-y-6">
 
-<div class="header">
-Data Siswa
+<div class="page-hero">
+<div class="page-kicker">
+Student Data
+</div>
+
+<div class="page-title">
+Kelola Data Siswa dan Invoice
+</div>
+
+<div class="page-subtitle">
+Upload data Excel dan invoice ZIP untuk menyiapkan target broadcast. Semua data siswa aktif akan tampil di tabel utama.
+</div>
+
+<div class="page-chip-row">
+<div class="page-chip">
+<div class="page-chip-label">Total Data</div>
+<div id="heroTotal" class="page-chip-value">0</div>
+</div>
+
+<div class="page-chip">
+<div class="page-chip-label">PDF Terhubung</div>
+<div id="heroPdf" class="page-chip-value">0</div>
+</div>
+</div>
 </div>
 
 
-<div class="grid grid-cols-2 gap-6">
+<div class="grid xl:grid-cols-2 gap-6">
 
-<!-- Upload Excel -->
 <div class="card p-6 shadow-sm">
-
-<div class="text-sm text-gray-500">
+<div class="section-title">
 Upload Excel
+</div>
+
+<div class="section-subtitle">
+Gunakan file sumber siswa terbaru sebelum upload invoice.
 </div>
 
 <input 
 type="file"
 id="excel"
-class="file-input w-full mt-3"
+class="file-input w-full mt-4"
 />
 
 <button 
 onclick="uploadExcel()" 
-class="btn btn-primary mt-3">
-
+class="btn btn-primary mt-4">
 Upload Excel
-
 </button>
 
 <div 
@@ -45,25 +67,25 @@ class="text-error mt-2 text-sm">
 </div>
 
 
-<!-- Upload ZIP -->
 <div class="card p-6 shadow-sm">
-
-<div class="text-sm text-gray-500">
+<div class="section-title">
 Upload ZIP Invoice
+</div>
+
+<div class="section-subtitle">
+ZIP akan diekstrak dan dicocokkan ke siswa berdasarkan nama file invoice.
 </div>
 
 <input 
 type="file"
 id="zip"
-class="file-input w-full mt-3"
+class="file-input w-full mt-4"
 />
 
 <button 
 onclick="uploadZip()" 
-class="btn btn-primary mt-3">
-
+class="btn btn-primary mt-4">
 Upload ZIP
-
 </button>
 
 <div 
@@ -77,13 +99,18 @@ class="text-error mt-2 text-sm">
 </div>
 
 
-<!-- Table Card -->
 <div class="card p-6 shadow-sm">
 
 <div class="flex justify-between items-center mb-4">
 
-<div class="text-lg font-medium">
+<div>
+<div class="section-title">
 Data Siswa
+</div>
+
+<div class="section-subtitle">
+Daftar target aktif yang siap digunakan untuk blast.
+</div>
 </div>
 
 <button 
@@ -140,8 +167,12 @@ try{
 
 const data = await api("/siswa")
 
+heroTotal.innerText = data.length
+heroPdf.innerText = data.filter(s=>s.pdf).length
+
 document.getElementById("table").innerHTML =
-data.map(s=>`
+data.length
+? data.map(s=>`
 
 <tr>
 <td>${s.id}</td>
@@ -152,6 +183,13 @@ data.map(s=>`
 </tr>
 
 `).join("")
+: `
+<tr>
+<td colspan="5" class="empty-state">
+Belum ada data siswa. Upload Excel terlebih dahulu.
+</td>
+</tr>
+`
 
 }catch(err){
 
@@ -183,7 +221,7 @@ await upload("/upload/excel",file)
 
 if(data.status === "ok"){
 
-excelError.innerText = ""
+excelError.innerText = data.message || ""
 
 loadSiswa()
 

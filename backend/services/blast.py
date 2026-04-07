@@ -1,6 +1,6 @@
 import asyncio
-import os
 from datetime import datetime
+from uuid import uuid4
 
 from database import SessionLocal
 
@@ -13,18 +13,12 @@ from core.websocket import manager
 from core.config import random_delay
 
 
-last_logs = []
-
-
 async def process(data):
-
-    global last_logs
 
     db = SessionLocal()
 
     siswa = student.get_all(db)
 
-    # filter kelas
     kelas = data.get("kelas")
 
     if kelas and kelas != "all":
@@ -35,17 +29,34 @@ async def process(data):
         data["template_id"]
     )
 
-    total = len(siswa)
+    if not tmpl:
+        await manager.send_to_frontend({
+            "type": "blast_error",
+            "message": "Template tidak ditemukan"
+        })
+        db.close()
+        return
+
+    initial_total = len(siswa)
+    run_id = str(uuid4())
 
     success = 0
     failed = 0
+    processed = 0
 
-    logs = []
+    retry_queue = []
 
-    for i, s in enumerate(siswa):
+    await manager.send_to_frontend({
+        "type": "blast_started",
+        "run_id": run_id,
+        "mode": "blast",
+        "total": initial_total
+    })
+
+    for s in siswa:
+        message = None
 
         try:
-
             message = template.render(
                 tmpl.isi,
                 {
@@ -54,21 +65,12 @@ async def process(data):
                 }
             )
 
-            # ======================
-            # kirim pesan
-            # ======================
-
             await whatsapp.send_message(
                 s.no_hp,
                 message
             )
 
-            # ======================
-            # kirim file (tanpa delay)
-            # ======================
-
             if s.pdf:
-
                 await whatsapp.send_document(
                     s.no_hp,
                     s.pdf
@@ -87,14 +89,6 @@ async def process(data):
             db.add(log)
             db.commit()
 
-            logs.append({
-                "id": s.id,
-                "nama": s.nama,
-                "kelas": s.kelas,
-                "status": "success",
-                "message": message
-            })
-
             await manager.send_to_frontend({
                 "type": "blast_log",
                 "data": {
@@ -105,10 +99,7 @@ async def process(data):
                 }
             })
 
-        except Exception as e:
-
-            failed += 1
-
+        except Exception:
             log = Log(
                 siswa_id=s.id,
                 nama=s.nama,
@@ -120,12 +111,9 @@ async def process(data):
             db.add(log)
             db.commit()
 
-            logs.append({
+            retry_queue.append({
                 "id": s.id,
-                "nama": s.nama,
-                "kelas": s.kelas,
-                "status": "failed",
-                "message": message
+                "message": message or ""
             })
 
             await manager.send_to_frontend({
@@ -138,67 +126,38 @@ async def process(data):
                 }
             })
 
-        # progress
+        processed += 1
+
         await manager.send_to_frontend({
             "type": "blast_progress",
-            "total": total,
+            "run_id": run_id,
+            "phase": "initial",
+            "total": initial_total + len(retry_queue),
             "success": success,
             "failed": failed,
-            "current": i + 1
+            "retry_pending": len(retry_queue),
+            "current": processed
         })
 
-        # ======================
-        # delay random antar siswa
-        # ======================
+        await asyncio.sleep(random_delay())
 
-        delay = random_delay()
+    for item in retry_queue:
 
-        await asyncio.sleep(delay)
-
-    last_logs = logs
-
-    await manager.send_to_frontend({
-        "type": "blast_done"
-    })
-
-    db.close()
-
-
-async def retry():
-
-    global last_logs
-
-    db = SessionLocal()
-
-    failed = [
-        l for l in last_logs
-        if l["status"] == "failed"
-    ]
-
-    total = len(failed)
-
-    success = 0
-    failed_count = 0
-
-    for i, f in enumerate(failed):
+        s = db.query(student.Siswa).filter(
+            student.Siswa.id == item["id"]
+        ).first()
 
         try:
 
-            s = db.query(student.Siswa).filter(
-                student.Siswa.id == f["id"]
-            ).first()
-
             if not s:
-                failed_count += 1
-                continue
+                raise ValueError("Siswa tidak ditemukan saat auto retry")
 
             await whatsapp.send_message(
                 s.no_hp,
-                f["message"]
+                item["message"]
             )
 
             if s.pdf:
-
                 await whatsapp.send_document(
                     s.no_hp,
                     s.pdf
@@ -206,25 +165,81 @@ async def retry():
 
             success += 1
 
-        except:
+            log = Log(
+                siswa_id=s.id,
+                nama=s.nama,
+                kelas=s.kelas,
+                status="success",
+                waktu=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
 
-            failed_count += 1
+            db.add(log)
+            db.commit()
+
+            await manager.send_to_frontend({
+                "type": "blast_log",
+                "data": {
+                    "id": s.id,
+                    "nama": s.nama,
+                    "kelas": s.kelas,
+                    "status": "success"
+                }
+            })
+
+        except Exception:
+            failed += 1
+
+            if s:
+                log = Log(
+                    siswa_id=s.id,
+                    nama=s.nama,
+                    kelas=s.kelas,
+                    status="failed",
+                    waktu=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                )
+
+                db.add(log)
+                db.commit()
+
+                await manager.send_to_frontend({
+                    "type": "blast_log",
+                    "data": {
+                        "id": s.id,
+                        "nama": s.nama,
+                        "kelas": s.kelas,
+                        "status": "failed"
+                    }
+                })
+
+        processed += 1
 
         await manager.send_to_frontend({
             "type": "blast_progress",
-            "total": total,
+            "run_id": run_id,
+            "phase": "retry",
+            "total": initial_total + len(retry_queue),
             "success": success,
-            "failed": failed_count,
-            "current": i + 1
+            "failed": failed,
+            "retry_pending": max(
+                initial_total + len(retry_queue) - processed,
+                0
+            ),
+            "current": processed
         })
 
-        delay = random_delay()
-
-        await asyncio.sleep(delay)
+        await asyncio.sleep(random_delay())
 
     await manager.send_to_frontend({
-        "type": "blast_done"
+        "type": "blast_done",
+        "run_id": run_id,
+        "mode": "blast",
+        "total": initial_total + len(retry_queue),
+        "success": success,
+        "failed": failed,
+        "retried": len(retry_queue)
     })
+
+    db.close()
 
 
 def get_logs():

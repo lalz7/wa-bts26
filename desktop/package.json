@@ -4,11 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev:backend": "..\\backend\\venv\\Scripts\\python.exe -m uvicorn server:app --app-dir ..\\backend --reload-dir ..\\backend --host 127.0.0.1 --port 8000 --reload",
-    "dev:frontend": "npm --prefix ..\\frontend run dev",
-    "dev:gateway": "npm --prefix ..\\wa-gateway run dev",
-    "dev:electron": "wait-on tcp:8000 http://127.0.0.1:3000 && electron .",
-    "dev": "concurrently -k -n BACKEND,FRONTEND,GATEWAY,ELECTRON -c blue,green,yellow,magenta \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:gateway\" \"npm run dev:electron\"",
+    "dev:electron": "electron .",
+    "dev": "npm run dev:electron",
+    "build": "electron-builder --win nsis",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -18,11 +16,54 @@
   "build": {
     "appId": "com.wabts26.desktop",
     "productName": "WA-BTS26",
+    "npmRebuild": false,
     "directories": {
       "buildResources": "assets"
     },
+    "extraResources": [
+      {
+        "from": "../frontend",
+        "to": "frontend",
+        "filter": [
+          "**/*",
+          "!node_modules{,/**}",
+          "!package-lock.json",
+          "!package.json"
+        ]
+      },
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!__pycache__{,/**}",
+          "!storage{,/**}",
+          "!database.db"
+        ]
+      },
+      {
+        "from": "../wa-gateway",
+        "to": "wa-gateway",
+        "filter": [
+          "index.js",
+          "websocket.js",
+          "whatsapp.js",
+          "package.json",
+          "!session{,/**}",
+          "!package-lock.json"
+        ]
+      },
+      {
+        "from": "../wa-gateway/node_modules",
+        "to": "wa-gateway/node_modules",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "win": {
       "target": "nsis",
+      "signAndEditExecutable": false,
       "icon": "assets/icon.ico"
     }
   },

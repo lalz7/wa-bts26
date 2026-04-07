@@ -22,7 +22,7 @@ BASE + url,
 options
 )
 
-return response.json()
+return parseResponse(response)
 
 }
 
@@ -41,6 +41,32 @@ body: form
 }
 )
 
-return res.json()
+return parseResponse(res)
+
+}
+
+
+async function parseResponse(response){
+
+const contentType =
+response.headers.get("content-type") || ""
+
+let payload = null
+
+if(contentType.includes("application/json")){
+payload = await response.json()
+}else{
+const text = await response.text()
+payload = text ? { detail: text } : {}
+}
+
+if(!response.ok){
+throw new Error(
+payload?.detail ||
+`Request failed with status ${response.status}`
+)
+}
+
+return payload
 
 }

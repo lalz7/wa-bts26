@@ -1,10 +1,14 @@
 const WebSocket = require("ws")
 
+const BACKEND_WS_URL =
+process.env.WA_BTS26_BACKEND_WS_URL ||
+"ws://127.0.0.1:8000/wa"
+
 let socket = null
 
 function connect(){
 
-    socket = new WebSocket("ws://127.0.0.1:8000/wa")
+    socket = new WebSocket(BACKEND_WS_URL)
 
 socket.on("open",()=>{
     console.log("Connected to backend")

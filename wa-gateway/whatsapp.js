@@ -12,11 +12,16 @@ const path = require("path")
 
 const ws = require("./websocket")
 
-const SESSION_DIR = path.join(__dirname, "session")
+const DATA_DIR =
+process.env.WA_BTS26_DATA_DIR ||
+__dirname
+
+const SESSION_DIR = path.join(DATA_DIR, "session")
 
 let sock = null
 let status = "disconnected"
 let connecting = false
+let commandQueue = Promise.resolve()
 
 
 function getAdminNumber(){
@@ -133,7 +138,7 @@ async function connect(){
 
 async function sendMessage(number,message){
 
-    if(!sock) return
+    if(!sock) throw new Error("WhatsApp belum connected")
 
     const jid = number + "@s.whatsapp.net"
 
@@ -146,7 +151,7 @@ async function sendMessage(number,message){
 
 async function sendDocument(number,filePath){
 
-    if(!sock) return
+    if(!sock) throw new Error("WhatsApp belum connected")
 
     const jid = number + "@s.whatsapp.net"
 
@@ -184,21 +189,43 @@ async function logout(){
 }
 
 
+function enqueueCommand(task){
+
+    commandQueue = commandQueue
+    .then(()=>task())
+    .catch((error)=>{
+        console.error("Command queue error:", error.message)
+    })
+
+    return commandQueue
+
+}
+
+
 function handleCommand(data){
 
     if(data.type === "send_message"){
-        sendMessage(data.number,data.message)
+        enqueueCommand(()=>{
+            console.log("Queue send_message:", data.number)
+            return sendMessage(data.number,data.message)
+        })
     }
 
     if(data.type === "send_document"){
-        sendDocument(
-            data.number,
-            data.path
-        )
+        enqueueCommand(()=>{
+            console.log("Queue send_document:", data.number)
+            return sendDocument(
+                data.number,
+                data.path
+            )
+        })
     }
 
     if(data.type === "logout"){
-        logout()
+        enqueueCommand(()=>{
+            console.log("Queue logout")
+            return logout()
+        })
     }
 
 }

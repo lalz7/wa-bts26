@@ -11,67 +11,88 @@ return `
 
 <div class="space-y-6">
 
-<div class="header">
-Dashboard
+<div class="page-hero">
+<div class="page-kicker">
+Operational Overview
 </div>
 
-<div class="grid grid-cols-2 gap-6">
+<div class="page-title">
+Dashboard WhatsApp Gateway
+</div>
 
-<!-- Status Card -->
+<div class="page-subtitle">
+Pantau status koneksi, cek nomor admin aktif, dan tangani login WhatsApp dari satu halaman yang lebih ringkas.
+</div>
+
+<div class="page-chip-row">
+<div class="page-chip">
+<div class="page-chip-label">Status Saat Ini</div>
+<div id="heroStatus" class="page-chip-value">Disconnected</div>
+</div>
+
+<div class="page-chip">
+<div class="page-chip-label">Nomor Admin</div>
+<div id="heroAdmin" class="page-chip-value">-</div>
+</div>
+</div>
+</div>
+
+<div class="grid xl:grid-cols-[0.9fr,1.1fr] gap-6">
+
 <div class="card p-6 shadow-sm">
-
-<div class="text-sm text-gray-500">
+<div class="section-title">
 Status WhatsApp
 </div>
 
+<div class="section-subtitle">
+Status koneksi realtime dari gateway dan sesi admin aktif.
+</div>
+
+<div class="soft-panel mt-5">
 <div id="status"
-class="mt-2 badge badge-error">
-
+class="badge badge-error">
 Disconnected
-
 </div>
 
 <div class="mt-4">
-
 <div class="text-sm text-gray-500">
 Nomor Admin
 </div>
 
 <div id="admin"
-class="mt-1 font-medium">
-
+class="mt-2 text-lg font-semibold">
 -
-
+</div>
+</div>
 </div>
 
-</div>
-
-<button 
-onclick="logout()" 
-class="btn btn-error mt-4">
-
+<div class="mt-5 flex flex-wrap gap-3">
+<button onclick="logout()" class="btn btn-error">
 Logout
-
 </button>
 
+<button onclick="load('blast')" class="btn">
+Ke Halaman Blast
+</button>
+</div>
+
 </div>
 
 
-<!-- QR Card -->
 <div class="card p-6 shadow-sm">
-
-<div class="text-sm text-gray-500">
+<div class="section-title">
 QR Login
 </div>
 
-<div id="qr"
-class="flex justify-center items-center
-h-64">
+<div class="section-subtitle">
+Scan QR hanya saat status belum terhubung.
+</div>
 
+<div id="qr"
+class="soft-panel mt-5 flex justify-center items-center h-72">
 <div class="text-gray-400">
 Menunggu QR...
 </div>
-
 </div>
 
 </div>
@@ -155,6 +176,9 @@ if(data.type === "admin"){
 document.getElementById("admin").innerText =
 data.data
 
+document.getElementById("heroAdmin").innerText =
+data.data
+
 }
 
 })
@@ -170,6 +194,9 @@ const data = await api("/admin")
 
 if(data?.no_hp){
 document.getElementById("admin").innerText =
+data.no_hp
+
+document.getElementById("heroAdmin").innerText =
 data.no_hp
 }
 
@@ -189,6 +216,8 @@ const el = document.getElementById("status")
 el.innerText = text
 
 el.className = `mt-2 badge ${cls}`
+
+document.getElementById("heroStatus").innerText = text
 
 }
 

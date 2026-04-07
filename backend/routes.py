@@ -3,13 +3,14 @@ from fastapi import HTTPException, UploadFile, File, Depends
 
 from sqlalchemy.orm import Session
 
-import os
 import shutil
+from pathlib import Path
 
 from database import get_db, SessionLocal
 
 from core.websocket import manager
 from core.queue import add
+from core.paths import EXCEL_DIR, INVOICES_DIR, ensure_data_dirs
 
 from services import whatsapp
 from services import student
@@ -21,6 +22,18 @@ from utils import excel, zip
 
 
 router = APIRouter()
+
+
+def clear_directory(directory: Path):
+
+    if not directory.exists():
+        return
+
+    for item in directory.iterdir():
+        if item.is_dir():
+            shutil.rmtree(item, ignore_errors=True)
+        else:
+            item.unlink(missing_ok=True)
 
 
 # =========================
@@ -141,6 +154,8 @@ def get_siswa(db: Session = Depends(get_db)):
 def delete_siswa(db: Session = Depends(get_db)):
 
     student.delete_all(db)
+    clear_directory(INVOICES_DIR)
+    clear_directory(EXCEL_DIR)
 
     return {
         "status": "deleted"
@@ -157,19 +172,28 @@ async def upload_excel(
     db: Session = Depends(get_db)
 ):
 
-    os.makedirs("storage/excel", exist_ok=True)
+    ensure_data_dirs()
+    clear_directory(EXCEL_DIR)
 
-    path = f"storage/excel/{file.filename}"
+    path = EXCEL_DIR / file.filename
 
     with open(path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    data = excel.read_excel(path)
+    result = excel.read_excel(str(path))
 
-    student.create_many(db, data)
+    student.create_many(db, result["rows"])
 
     return {
-        "status": "ok"
+        "status": "ok",
+        "inserted": len(result["rows"]),
+        "skipped": result["skipped"],
+        "message": (
+            f"Import berhasil: {len(result['rows'])} baris."
+            if not result["skipped"]
+            else f"Import berhasil: {len(result['rows'])} baris, "
+            f"{len(result['skipped'])} baris dilewati."
+        )
     }
 
 
@@ -183,16 +207,17 @@ async def upload_zip(
     db: Session = Depends(get_db)
 ):
 
-    os.makedirs("storage/invoices", exist_ok=True)
+    ensure_data_dirs()
+    clear_directory(INVOICES_DIR)
 
-    path = f"storage/invoices/{file.filename}"
+    path = INVOICES_DIR / file.filename
 
     with open(path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     files = zip.extract_zip(
-        path,
-        "storage/invoices"
+        str(path),
+        str(INVOICES_DIR)
     )
 
     for f in files:
@@ -257,16 +282,6 @@ async def start_blast(data: dict):
     await add({
         "type": "blast",
         "data": data
-    })
-
-    return {"status":"queued"}
-
-
-@router.post("/blast/retry")
-async def retry_blast():
-
-    await add({
-        "type": "retry"
     })
 
     return {"status":"queued"}

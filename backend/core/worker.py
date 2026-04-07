@@ -27,10 +27,6 @@ async def worker():
 
             await blast.process(job["data"])
 
-        if job["type"] == "retry":
-
-            await blast.retry()
-
         delay = random.randint(
             DELAY_MIN,
             DELAY_MAX
