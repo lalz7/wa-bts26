@@ -1,6 +1,8 @@
 import { api } from "../services/api.js"
 import { onMessage } from "../services/websocket.js"
 
+let currentStatus = "disconnected"
+
 export default function dashboard(){
 
 setTimeout(initDashboard,100)
@@ -85,9 +87,13 @@ Menunggu QR...
 
 function initDashboard(){
 
+loadAdmin()
+
 onMessage((data)=>{
 
 if(data.type === "qr"){
+
+if(currentStatus === "connected") return
 
 document.getElementById("qr").innerHTML =
 `<img src="${data.data}" class="w-56"/>`
@@ -98,6 +104,8 @@ setStatus("Scan QR","badge-warning")
 
 
 if(data.type === "connected"){
+
+currentStatus = "connected"
 
 document.getElementById("qr").innerHTML =
 `<div class="text-success font-medium">
@@ -111,6 +119,8 @@ setStatus("Connected","badge-success")
 
 if(data.type === "disconnected"){
 
+currentStatus = "disconnected"
+
 document.getElementById("qr").innerHTML =
 `<div class="text-error">
 Disconnected
@@ -123,7 +133,19 @@ setStatus("Disconnected","badge-error")
 
 if(data.type === "status"){
 
-setStatus(data.data,"badge-success")
+const statusMap = {
+connected: "badge-success",
+disconnected: "badge-error",
+qr: "badge-warning",
+reconnecting: "badge-warning"
+}
+
+currentStatus = data.data
+
+setStatus(
+capitalizeStatus(data.data),
+statusMap[data.data] || "badge-success"
+)
 
 }
 
@@ -136,6 +158,26 @@ data.data
 }
 
 })
+
+}
+
+
+async function loadAdmin(){
+
+try{
+
+const data = await api("/admin")
+
+if(data?.no_hp){
+document.getElementById("admin").innerText =
+data.no_hp
+}
+
+}catch(err){
+
+console.log(err)
+
+}
 
 }
 
@@ -154,5 +196,15 @@ el.className = `mt-2 badge ${cls}`
 window.logout = async function(){
 
 await api("/whatsapp/logout","POST")
+
+}
+
+
+function capitalizeStatus(text){
+
+if(!text) return "-"
+
+return text.charAt(0).toUpperCase() +
+text.slice(1)
 
 }

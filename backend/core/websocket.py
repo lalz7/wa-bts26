@@ -46,8 +46,16 @@ class ConnectionManager:
         # simpan state
         if data["type"] == "connected":
             self.last_status = data
+            self.last_qr = None
 
         if data["type"] == "disconnected":
+            self.last_status = data
+
+        if data["type"] == "reconnecting":
+            self.last_status = data
+            self.last_qr = None
+
+        if data["type"] == "status":
             self.last_status = data
 
         if data["type"] == "qr":

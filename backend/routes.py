@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 import os
 import shutil
 
-from database import get_db
+from database import get_db, SessionLocal
 
 from core.websocket import manager
 from core.queue import add
@@ -15,6 +15,7 @@ from services import whatsapp
 from services import student
 from services import template
 from services import blast
+from services import admin
 
 from utils import excel, zip
 
@@ -45,10 +46,14 @@ async def websocket_frontend(websocket: WebSocket):
 @router.websocket("/wa")
 async def websocket_gateway(websocket: WebSocket):
     await manager.connect_gateway(websocket)
+    db = SessionLocal()
 
     try:
         while True:
             data = await websocket.receive_json()
+
+            if data.get("type") == "admin" and data.get("data"):
+                admin.save_number(db, data["data"])
 
             await manager.send_to_frontend(data)
 
@@ -58,6 +63,8 @@ async def websocket_gateway(websocket: WebSocket):
         await manager.send_to_frontend({
             "type": "disconnected"
         })
+    finally:
+        db.close()
 
 
 # =========================
@@ -74,6 +81,11 @@ async def whatsapp_status():
 async def whatsapp_logout():
     await whatsapp.logout()
     return {"status": "logout_sent"}
+
+
+@router.get("/admin")
+def get_admin(db: Session = Depends(get_db)):
+    return admin.get_latest(db)
 
 
 @router.post("/whatsapp/send")

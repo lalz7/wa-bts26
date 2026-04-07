@@ -12,9 +12,36 @@ const path = require("path")
 
 const ws = require("./websocket")
 
+const SESSION_DIR = path.join(__dirname, "session")
+
 let sock = null
 let status = "disconnected"
 let connecting = false
+
+
+function getAdminNumber(){
+
+    const id = sock?.user?.id
+
+    if(!id) return null
+
+    return id.split(":")[0]
+
+}
+
+
+function sendAdmin(){
+
+    const number = getAdminNumber()
+
+    if(!number) return
+
+    ws.send({
+        type:"admin",
+        data:number
+    })
+
+}
 
 
 async function connect(){
@@ -23,7 +50,7 @@ async function connect(){
 
     connecting = true
 
-    const { state, saveCreds } = await useMultiFileAuthState("session")
+    const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR)
 
     const { version } = await fetchLatestBaileysVersion()
 
@@ -57,25 +84,13 @@ async function connect(){
         if(connection === "open"){
 
             status = "connected"
+            console.log("WhatsApp Connected")
 
             ws.send({
             type:"connected"
             })
 
-            setTimeout(()=>{
-
-            const number = sock.user?.id?.split(":")[0]
-
-            if(number){
-
-            ws.send({
-            type:"admin",
-            data:number
-            })
-
-            }
-
-            },1000)
+            setTimeout(sendAdmin,1000)
 
         }
 
@@ -90,6 +105,7 @@ async function connect(){
             if(reason !== DisconnectReason.loggedOut){
 
             status = "reconnecting"
+            console.log("WhatsApp Reconnecting")
 
             ws.send({
             type:"reconnecting"
@@ -100,6 +116,7 @@ async function connect(){
             }else{
 
             status = "disconnected"
+            console.log("WhatsApp Disconnected")
 
             ws.send({
             type:"disconnected"
@@ -152,8 +169,8 @@ async function logout(){
 
     await sock.logout()
 
-    if(fs.existsSync("session")){
-        fs.rmSync("session",{recursive:true,force:true})
+    if(fs.existsSync(SESSION_DIR)){
+        fs.rmSync(SESSION_DIR,{recursive:true,force:true})
     }
 
     sock = null
@@ -189,10 +206,14 @@ function handleCommand(data){
 
 function sendStatus(){
 
+    console.log("WhatsApp Status:", status)
+
     ws.send({
         type:"status",
         data:status
     })
+
+    sendAdmin()
 
 }
 

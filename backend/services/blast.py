@@ -91,7 +91,8 @@ async def process(data):
                 "id": s.id,
                 "nama": s.nama,
                 "kelas": s.kelas,
-                "status": "success"
+                "status": "success",
+                "message": message
             })
 
             await manager.send_to_frontend({
@@ -123,7 +124,8 @@ async def process(data):
                 "id": s.id,
                 "nama": s.nama,
                 "kelas": s.kelas,
-                "status": "failed"
+                "status": "failed",
+                "message": message
             })
 
             await manager.send_to_frontend({
@@ -186,9 +188,13 @@ async def retry():
                 student.Siswa.id == f["id"]
             ).first()
 
+            if not s:
+                failed_count += 1
+                continue
+
             await whatsapp.send_message(
                 s.no_hp,
-                "Retry pengiriman"
+                f["message"]
             )
 
             if s.pdf:

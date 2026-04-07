@@ -4,12 +4,28 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev:backend": "..\\backend\\venv\\Scripts\\python.exe -m uvicorn server:app --app-dir ..\\backend --reload-dir ..\\backend --host 127.0.0.1 --port 8000 --reload",
+    "dev:frontend": "npm --prefix ..\\frontend run dev",
+    "dev:gateway": "npm --prefix ..\\wa-gateway run dev",
+    "dev:electron": "wait-on tcp:8000 http://127.0.0.1:3000 && electron .",
+    "dev": "concurrently -k -n BACKEND,FRONTEND,GATEWAY,ELECTRON -c blue,green,yellow,magenta \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:gateway\" \"npm run dev:electron\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "build": {
+    "appId": "com.wabts26.desktop",
+    "productName": "WA-BTS26",
+    "directories": {
+      "buildResources": "assets"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    }
+  },
   "devDependencies": {
     "electron": "^41.1.0",
     "electron-builder": "^26.8.1"
