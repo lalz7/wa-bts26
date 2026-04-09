@@ -63,9 +63,12 @@ export function onMessage(callback){
 
 listeners.push(callback)
 
-// kirim state terakhir ke page baru
 Object.values(lastData)
 .forEach(callback)
+
+return () => {
+    listeners = listeners.filter(fn => fn !== callback);
+};
 
 }
 

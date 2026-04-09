@@ -129,16 +129,16 @@ Upload ZIP PDF
 </div>
 </div>
 
-<div class="soft-panel mt-4">
-<div class="section-title">
-Filter dan Pencarian
+<div class="soft-panel siswa-upload-card mt-4">
+<div>
+<div>
+<div class="siswa-upload-kicker">Langkah 3</div>
+<div class="section-title">Filter dan Pencarian</div>
+<div class="section-subtitle">Cari siswa tertentu atau fokus ke kelas yang ingin kamu review sebelum memulai blast.</div>
+</div>
 </div>
 
-<div class="section-subtitle">
-Langkah 3: cari siswa tertentu atau fokus ke kelas yang ingin kamu review.
-</div>
-
-<div class="grid md:grid-cols-[220px_minmax(0,1fr)] gap-4 mt-4">
+<div class="grid md:grid-cols-[220px_minmax(0,1fr)] gap-4 mt-5">
 <div>
 <div class="text-sm text-gray-500 mb-2">
 Kelas
@@ -155,11 +155,15 @@ Cari
 <input
 id="filterSearch"
 type="text"
-placeholder="Cari nama atau no HP"
+placeholder="Cari nama atau no HP..."
 class="input w-full siswa-input"
 oninput="applySiswaFilter()"
 />
 </div>
+</div>
+
+<div class="siswa-filter-note mt-4">
+Gunakan filter untuk memastikan data yang muncul di tabel di bawah sudah sesuai.
 </div>
 </div>
 </div>

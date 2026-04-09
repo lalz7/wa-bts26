@@ -3,8 +3,13 @@ import { onMessage } from "../services/websocket.js"
 import { confirmDialog } from "../services/dialog.js"
 
 let currentStatus = "disconnected"
+let unsubscribeWhatsApp = null
 
 export default function whatsapp(){
+if (unsubscribeWhatsApp) {
+    unsubscribeWhatsApp();
+    unsubscribeWhatsApp = null;
+}
 
 setTimeout(initWhatsApp,100)
 
@@ -116,8 +121,7 @@ QR akan muncul otomatis setelah gateway siap dan akun perlu proses login.
 function initWhatsApp(){
 
 loadAdmin()
-
-onMessage((data)=>{
+unsubscribeWhatsApp = onMessage((data)=>{
 
 if(data.type === "qr"){
 

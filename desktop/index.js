@@ -162,13 +162,13 @@ function startBackend(){
 
 
 function startGateway(){
-
     if(gatewayProcess) return
-
     const paths = getPaths()
 
     gatewayProcess = spawn(
-        process.execPath,
+        // Menggunakan process.execPath saat unpackaged, 
+        // tapi pastikan mengarah ke node exe yang benar di production
+        app.isPackaged ? process.execPath : "node", 
         [paths.gatewayScript],
         {
             cwd: paths.gatewayDir,
@@ -213,7 +213,6 @@ async function waitForBackend(timeoutMs = 30000){
 
 
 function createWindow(){
-
     const paths = getPaths()
 
     mainWindow = new BrowserWindow({
@@ -223,6 +222,8 @@ function createWindow(){
         minHeight: 700,
         icon: APP_ICON,
         autoHideMenuBar: true,
+        show: false, // 1. Mulai dengan keadaan tersembunyi
+        backgroundColor: "#f5f7fb", // 2. Set warna background yang sama dengan CSS body kamu
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false
@@ -230,12 +231,17 @@ function createWindow(){
     })
 
     mainWindow.loadFile(paths.frontendIndex)
-    mainWindow.maximize()
+
+    // 3. Tampilkan window hanya saat konten sudah 'siap saji'
+    mainWindow.once("ready-to-show", () => {
+        mainWindow.maximize()
+        mainWindow.show()
+        mainWindow.focus()
+    })
 
     mainWindow.on("closed", ()=>{
         mainWindow = null
     })
-
 }
 
 
