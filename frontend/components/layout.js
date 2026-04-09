@@ -1,4 +1,4 @@
-import navigation from "./navigation-clean.js"
+import navigation from "./navigation.js"
 
 export default function layout(content){
 

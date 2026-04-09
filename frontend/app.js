@@ -1,4 +1,4 @@
-import dashboard from "./pages/dashboard.js"
+import whatsapp from "./pages/whatsapp.js"
 import siswa from "./pages/siswa.js"
 import template from "./pages/template.js"
 import blast from "./pages/blast.js"
@@ -12,8 +12,8 @@ window.currentPage = page
 
 let content = ""
 
-if(page === "dashboard")
-content = dashboard()
+if(page === "whatsapp")
+content = whatsapp()
 
 if(page === "siswa")
 content = siswa()
@@ -40,9 +40,9 @@ document.querySelectorAll(".nav-item")
 .forEach(el=>el.classList.remove("nav-active"))
 
 const map = {
-dashboard:0,
-siswa:1,
-template:2,
+whatsapp:0,
+template:1,
+siswa:2,
 blast:3,
 log:4
 }
@@ -58,4 +58,4 @@ document.querySelectorAll(".nav-item")[index]
 
 window.load = load
 
-load("dashboard")
+load("whatsapp")

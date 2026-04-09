@@ -33,3 +33,17 @@ def save_number(db, number):
     db.refresh(admin)
 
     return admin
+
+
+def clear_number(db):
+
+    admin = get_latest(db)
+
+    if not admin:
+        return None
+
+    admin.no_hp = None
+    db.commit()
+    db.refresh(admin)
+
+    return admin

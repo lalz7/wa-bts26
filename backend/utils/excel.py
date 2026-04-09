@@ -12,6 +12,8 @@ def read_excel(file):
 
     data = []
     skipped = []
+    duplicate_rows = []
+    seen_ids = set()
 
     for index, row in df.iterrows():
 
@@ -27,8 +29,20 @@ def read_excel(file):
             })
             continue
 
+        student_id = int(raw_id)
+
+        if student_id in seen_ids:
+            duplicate_rows.append({
+                "row": index + 2,
+                "id": student_id,
+                "reason": "ID duplikat di file Excel"
+            })
+            continue
+
+        seen_ids.add(student_id)
+
         data.append({
-            "id": int(raw_id),
+            "id": student_id,
             "nama": row.get("nama","").strip(),
             "kelas": row.get("kelas","").strip(),
             "no_hp": row.get("no_hp","").strip()
@@ -36,5 +50,6 @@ def read_excel(file):
 
     return {
         "rows": data,
-        "skipped": skipped
+        "skipped": skipped,
+        "duplicate_rows": duplicate_rows
     }

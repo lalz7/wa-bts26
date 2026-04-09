@@ -1,6 +1,10 @@
 import asyncio
+import csv
+import io
 from datetime import datetime
 from uuid import uuid4
+
+from sqlalchemy import func
 
 from database import SessionLocal
 
@@ -16,6 +20,14 @@ from core.config import random_delay
 async def process(data):
 
     db = SessionLocal()
+
+    if not manager.is_whatsapp_connected():
+        await manager.send_to_frontend({
+            "type": "blast_error",
+            "message": "WhatsApp belum terhubung. Login atau scan QR terlebih dahulu."
+        })
+        db.close()
+        return
 
     siswa = student.get_all(db)
 
@@ -242,12 +254,137 @@ async def process(data):
     db.close()
 
 
-def get_logs():
+def get_logs(
+    db,
+    tanggal=None,
+    kelas=None,
+    status=None,
+    search=None,
+    page=1,
+    limit=20,
+    sort_by="waktu",
+    sort_dir="desc"
+):
 
-    db = SessionLocal()
+    query = build_log_query(
+        db,
+        tanggal=tanggal,
+        kelas=kelas,
+        status=status,
+        search=search
+    )
 
-    logs = db.query(Log).order_by(Log.id.desc()).all()
+    total = query.with_entities(func.count(Log.id)).scalar() or 0
 
-    db.close()
+    sort_map = {
+        "waktu": Log.waktu,
+        "nama": Log.nama,
+        "kelas": Log.kelas,
+        "status": Log.status
+    }
 
-    return logs
+    sort_column = sort_map.get(sort_by, Log.waktu)
+
+    if sort_dir == "asc":
+        query = query.order_by(sort_column.asc(), Log.id.asc())
+    else:
+        query = query.order_by(sort_column.desc(), Log.id.desc())
+
+    items = query.offset((page - 1) * limit).limit(limit).all()
+
+    kelas_items = db.query(Log.kelas).distinct().order_by(Log.kelas.asc()).all()
+
+    return {
+        "items": items,
+        "meta": {
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "total_pages": max((total + limit - 1) // limit, 1)
+        },
+        "kelas_options": [
+            item[0] for item in kelas_items if item[0]
+        ]
+    }
+
+
+def export_logs_csv(
+    db,
+    tanggal=None,
+    kelas=None,
+    status=None,
+    search=None,
+    sort_by="waktu",
+    sort_dir="desc"
+):
+
+    query = build_log_query(
+        db,
+        tanggal=tanggal,
+        kelas=kelas,
+        status=status,
+        search=search
+    )
+
+    sort_map = {
+        "waktu": Log.waktu,
+        "nama": Log.nama,
+        "kelas": Log.kelas,
+        "status": Log.status
+    }
+
+    sort_column = sort_map.get(sort_by, Log.waktu)
+
+    if sort_dir == "asc":
+        rows = query.order_by(sort_column.asc(), Log.id.asc()).all()
+    else:
+        rows = query.order_by(sort_column.desc(), Log.id.desc()).all()
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+
+    writer.writerow([
+        "Waktu",
+        "Nama",
+        "Kelas",
+        "Status"
+    ])
+
+    for row in rows:
+        writer.writerow([
+            row.waktu or "",
+            row.nama or "",
+            row.kelas or "",
+            row.status or ""
+        ])
+
+    return buffer.getvalue()
+
+
+def build_log_query(
+    db,
+    tanggal=None,
+    kelas=None,
+    status=None,
+    search=None
+):
+
+    query = db.query(Log)
+
+    if tanggal:
+        query = query.filter(Log.waktu.like(f"{tanggal}%"))
+
+    if kelas and kelas != "all":
+        query = query.filter(Log.kelas == kelas)
+
+    if status and status != "all":
+        query = query.filter(Log.status == status)
+
+    if search:
+        keyword = f"%{search}%"
+        query = query.filter(
+            (Log.nama.ilike(keyword)) |
+            (Log.kelas.ilike(keyword))
+        )
+
+    return query

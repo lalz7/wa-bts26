@@ -1,4 +1,6 @@
 import { api } from "../services/api.js"
+import { confirmDialog } from "../services/dialog.js"
+import { enhanceCustomSelects, refreshCustomSelect } from "../services/custom-select.js"
 
 let templates = []
 let selectedId = null
@@ -18,87 +20,73 @@ Message Template
 </div>
 
 <div class="page-title">
-Kelola Template Broadcast
+Kelola Template Pesan
 </div>
 
 <div class="page-subtitle">
-Simpan beberapa format pesan, lihat preview isinya, lalu tandai satu template aktif untuk dipakai pada proses blast berikutnya.
-</div>
-
-<div class="page-chip-row">
-<div class="page-chip">
-<div class="page-chip-label">Total Template</div>
-<div id="heroTemplateCount" class="page-chip-value">0</div>
-</div>
-
-<div class="page-chip">
-<div class="page-chip-label">Template Aktif</div>
-<div id="heroActiveTemplate" class="page-chip-value">Belum dipilih</div>
-</div>
+Kelola template pesan dan pilih satu template aktif untuk blast.
 </div>
 </div>
 
-<div class="card p-6">
-
-<div class="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4 mb-4">
-
+<div class="card template-main-card shadow-sm">
+<div class="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-3">
 <div>
 <div class="section-title">
-Daftar Template
+Template Pesan
 </div>
 
 <div class="section-subtitle">
-Pilih template untuk preview, edit, atau jadikan template aktif.
+Pilih, kelola, dan tandai template aktif untuk blast.
 </div>
 </div>
 
-<div class="flex gap-2">
-
-<button onclick="createTemplate()" class="btn btn-primary btn-sm">
+<div class="template-toolbar">
+<button onclick="createTemplate()" class="btn btn-sm template-btn-primary">
 Tambah
 </button>
 
-<button onclick="editTemplate()" class="btn btn-warning btn-sm">
+<button onclick="editTemplate()" class="btn btn-sm template-btn-warning-solid">
 Edit
 </button>
 
-<button onclick="deleteTemplate()" class="btn btn-error btn-sm">
+<button onclick="deleteTemplate()" class="btn btn-sm template-btn-danger-solid">
 Hapus
 </button>
-
+</div>
 </div>
 
+<div class="template-meta-row mt-3">
+<div class="template-meta-left">
+<div class="template-meta-pill">
+Total: <span id="heroTemplateCount" class="font-medium text-gray-700">0</span>
 </div>
 
+<div class="template-meta-pill">
+Aktif: <span id="heroActiveTemplate" class="font-medium text-gray-700">Belum dipilih</span>
+</div>
+</div>
+</div>
+
+<div class="mt-3">
 <select 
 id="templateSelect"
-class="select w-full"
+class="select w-full template-select"
 onchange="previewTemplate()">
 </select>
+</div>
 
 <textarea
 id="preview"
-class="textarea w-full mt-4 h-40"
+class="textarea w-full mt-3 template-preview"
 readonly>
 </textarea>
 
-<div class="mt-4 flex flex-wrap items-center gap-3">
-
-<button 
-onclick="setActiveTemplate()" 
-class="btn btn-primary">
-Gunakan untuk Blast
+<div class="template-footer mt-3">
+<button onclick="setActiveTemplate()" class="btn btn-sm template-btn-accent">
+Gunakan Template
 </button>
-
-<span 
-id="activeTemplate"
-class="text-sm text-gray-500">
-</span>
-
 </div>
-
 </div>
-
 
 
 <!-- MODAL -->
@@ -119,8 +107,24 @@ class="input w-full"
 <textarea
 id="isi"
 placeholder="Isi pesan"
-class="textarea w-full mt-3 h-32">
+class="textarea w-full mt-3 h-28">
 </textarea>
+
+<div class="mt-3">
+<div class="text-sm text-gray-500">
+Placeholder
+</div>
+
+<div class="flex flex-wrap gap-2 mt-2">
+<button type="button" onclick="insertToken('nama')" class="token-chip">
+${"${nama}"}
+</button>
+
+<button type="button" onclick="insertToken('kelas')" class="token-chip">
+${"${kelas}"}
+</button>
+</div>
+</div>
 
 <div class="modal-action">
 
@@ -148,6 +152,7 @@ Batal
 async function initTemplate(){
 
 await loadTemplate()
+enhanceCustomSelects()
 
 }
 
@@ -178,9 +183,17 @@ selectedId = active && templates.find(t=>t.id == active)
 templateSelect.value = selectedId
 previewTemplate()
 
+}else{
+
+selectedId = null
+templateSelect.value = ""
+preview.value = ""
+localStorage.removeItem("template")
+
 }
 
 updateActiveTemplateLabel()
+refreshCustomSelect(templateSelect)
 
 }
 
@@ -221,6 +234,10 @@ templates.find(
 t=>t.id == selectedId
 )
 
+if(!t){
+return
+}
+
 judul.value = t.judul
 isi.value = t.isi
 
@@ -232,7 +249,13 @@ window.deleteTemplate = async function(){
 
 if(!selectedId) return
 
-if(!confirm("Hapus template?")) return
+const confirmed = await confirmDialog({
+title: "Hapus Template",
+message: "Template yang dipilih akan dihapus dari daftar.",
+variant: "danger"
+})
+
+if(!confirmed) return
 
 await api(`/template/${selectedId}`,"DELETE")
 
@@ -279,13 +302,33 @@ localStorage.setItem(
 selectedId
 )
 
-activeTemplate.innerText =
-"Template aktif tersimpan"
-
 updateActiveTemplateLabel()
 
 }
 
+window.insertToken = function(token){
+
+const field = document.getElementById("isi")
+
+if(!field){
+return
+}
+
+const placeholder = `\${${token}}`
+const start = field.selectionStart ?? field.value.length
+const end = field.selectionEnd ?? field.value.length
+
+field.value =
+field.value.slice(0, start) +
+placeholder +
+field.value.slice(end)
+
+field.focus()
+
+const nextPos = start + placeholder.length
+field.setSelectionRange(nextPos, nextPos)
+
+}
 
 function updateActiveTemplateLabel(){
 
@@ -293,7 +336,6 @@ const active =
 localStorage.getItem("template")
 
 if(!active){
-activeTemplate.innerText = "Belum ada template aktif"
 heroActiveTemplate.innerText = "Belum dipilih"
 return
 }
@@ -301,12 +343,7 @@ return
 const current =
 templates.find(t=>t.id == active)
 
-activeTemplate.innerText =
-current
-? `Aktif: ${current.judul}`
-: "Template aktif tersimpan"
-
 heroActiveTemplate.innerText =
-current?.judul || "Template aktif tersimpan"
+current?.judul || "Belum dipilih"
 
 }

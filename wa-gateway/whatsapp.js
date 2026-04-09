@@ -201,23 +201,48 @@ function enqueueCommand(task){
 
 }
 
+function sendAck(commandId,status,message = null){
+
+    if(!commandId) return
+
+    ws.send({
+        type:"gateway_ack",
+        command_id: commandId,
+        status,
+        message
+    })
+
+}
+
 
 function handleCommand(data){
 
     if(data.type === "send_message"){
-        enqueueCommand(()=>{
+        enqueueCommand(async()=>{
             console.log("Queue send_message:", data.number)
-            return sendMessage(data.number,data.message)
+            try{
+                await sendMessage(data.number,data.message)
+                sendAck(data.command_id,"success")
+            }catch(error){
+                sendAck(data.command_id,"error", error.message)
+                throw error
+            }
         })
     }
 
     if(data.type === "send_document"){
-        enqueueCommand(()=>{
+        enqueueCommand(async()=>{
             console.log("Queue send_document:", data.number)
-            return sendDocument(
-                data.number,
-                data.path
-            )
+            try{
+                await sendDocument(
+                    data.number,
+                    data.path
+                )
+                sendAck(data.command_id,"success")
+            }catch(error){
+                sendAck(data.command_id,"error", error.message)
+                throw error
+            }
         })
     }
 

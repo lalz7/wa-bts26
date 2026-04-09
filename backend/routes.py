@@ -1,5 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from fastapi import HTTPException, UploadFile, File, Depends
+from fastapi import HTTPException, UploadFile, File, Depends, Query
+from fastapi.responses import Response
 
 from sqlalchemy.orm import Session
 
@@ -65,6 +66,9 @@ async def websocket_gateway(websocket: WebSocket):
         while True:
             data = await websocket.receive_json()
 
+            if await manager.resolve_gateway_command(data):
+                continue
+
             if data.get("type") == "admin" and data.get("data"):
                 admin.save_number(db, data["data"])
 
@@ -92,7 +96,20 @@ async def whatsapp_status():
 
 @router.post("/whatsapp/logout")
 async def whatsapp_logout():
+    db = SessionLocal()
+
+    try:
+        admin.clear_number(db)
+    finally:
+        db.close()
+
     await whatsapp.logout()
+
+    await manager.send_to_frontend({
+        "type": "admin",
+        "data": None
+    })
+
     return {"status": "logout_sent"}
 
 
@@ -162,6 +179,17 @@ def delete_siswa(db: Session = Depends(get_db)):
     }
 
 
+@router.delete("/siswa/pdf")
+def delete_siswa_pdf(db: Session = Depends(get_db)):
+
+    student.clear_pdf(db)
+    clear_directory(INVOICES_DIR)
+
+    return {
+        "status": "pdf_deleted"
+    }
+
+
 # =========================
 # UPLOAD EXCEL
 # =========================
@@ -182,16 +210,30 @@ async def upload_excel(
 
     result = excel.read_excel(str(path))
 
-    student.create_many(db, result["rows"])
+    if result["duplicate_rows"]:
+        duplicate_ids = ", ".join(
+            str(item["id"]) for item in result["duplicate_rows"]
+        )
+
+        raise HTTPException(
+            status_code=400,
+            detail=f"ID duplikat di file Excel: {duplicate_ids}"
+        )
+
+    merge_result = student.create_many(db, result["rows"])
 
     return {
         "status": "ok",
+        "created": merge_result["created"],
+        "updated": merge_result["updated"],
         "inserted": len(result["rows"]),
         "skipped": result["skipped"],
         "message": (
-            f"Import berhasil: {len(result['rows'])} baris."
+            f"Import berhasil: {merge_result['created']} data baru, "
+            f"{merge_result['updated']} data diperbarui."
             if not result["skipped"]
-            else f"Import berhasil: {len(result['rows'])} baris, "
+            else f"Import berhasil: {merge_result['created']} data baru, "
+            f"{merge_result['updated']} data diperbarui, "
             f"{len(result['skipped'])} baris dilewati."
         )
     }
@@ -279,6 +321,12 @@ def delete_template(
 @router.post("/blast/start")
 async def start_blast(data: dict):
 
+    if not manager.is_whatsapp_connected():
+        raise HTTPException(
+            status_code=400,
+            detail="WhatsApp belum terhubung. Login atau scan QR terlebih dahulu."
+        )
+
     await add({
         "type": "blast",
         "data": data
@@ -287,5 +335,54 @@ async def start_blast(data: dict):
     return {"status":"queued"}
 
 @router.get("/log")
-def get_log():
-    return blast.get_logs()
+def get_log(
+    tanggal: str | None = Query(default=None),
+    kelas: str | None = Query(default="all"),
+    status: str | None = Query(default="all"),
+    search: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+    sort_by: str = Query(default="waktu"),
+    sort_dir: str = Query(default="desc"),
+    db: Session = Depends(get_db)
+):
+    return blast.get_logs(
+        db,
+        tanggal=tanggal,
+        kelas=kelas,
+        status=status,
+        search=search,
+        page=page,
+        limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir
+    )
+
+
+@router.get("/log/export")
+def export_log(
+    tanggal: str | None = Query(default=None),
+    kelas: str | None = Query(default="all"),
+    status: str | None = Query(default="all"),
+    search: str | None = Query(default=None),
+    sort_by: str = Query(default="waktu"),
+    sort_dir: str = Query(default="desc"),
+    db: Session = Depends(get_db)
+):
+    csv_content = blast.export_logs_csv(
+        db,
+        tanggal=tanggal,
+        kelas=kelas,
+        status=status,
+        search=search,
+        sort_by=sort_by,
+        sort_dir=sort_dir
+    )
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": 'attachment; filename="log-blast.csv"'
+        }
+    )

@@ -1,5 +1,7 @@
 import { api } from "../services/api.js"
 import { onMessage } from "../services/websocket.js"
+import { alertDialog } from "../services/dialog.js"
+import { enhanceCustomSelects, refreshCustomSelect } from "../services/custom-select.js"
 
 let siswa = []
 let templateAktif = null
@@ -12,6 +14,7 @@ let studentStatuses = {}
 let activityItems = []
 let latestProgress = null
 let activeStudentId = null
+let currentWhatsAppStatus = "disconnected"
 
 export default function blast(){
 
@@ -45,7 +48,7 @@ Pilih kelas target, cek daftar penerima, lalu mulai blast. Sistem akan mengirim 
 
 <div class="blast-hero-soft rounded-2xl px-4 py-3 min-w-[150px]">
 <div class="text-xs text-white/70">Status Proses</div>
-<div id="heroStatus" class="mt-1 text-sm font-medium">Menunggu mulai</div>
+<div id="heroStatus" class="mt-1 text-sm font-medium">-</div>
 </div>
 
 <div class="blast-hero-soft rounded-2xl px-4 py-3 min-w-[150px]">
@@ -120,26 +123,28 @@ Data Blast
 <div class="mt-1 text-lg font-medium">
 Daftar siswa dan status pengiriman
 </div>
+
+<div class="mt-3 text-sm text-gray-500">
+Total: <span id="total">0</span>
+</div>
 </div>
 
 <div class="flex flex-col sm:flex-row sm:items-center gap-3 xl:justify-end">
+<div class="blast-filter-select">
 <select
 id="filterKelas"
-class="select w-full sm:w-52"
+class="select w-full"
 onchange="filterData()">
 <option value="all">
 Semua Kelas
 </option>
 </select>
-
-<div class="text-sm text-gray-500">
-Total: <span id="total">0</span>
 </div>
 
 <button
 id="startButton"
 onclick="startBlast()"
-class="btn btn-primary w-full sm:w-auto">
+class="btn w-full sm:w-auto blast-start-btn">
 Mulai Blast
 </button>
 </div>
@@ -222,6 +227,7 @@ async function initBlast(){
 loadTemplate()
 loadSiswa()
 renderActivityFeed()
+enhanceCustomSelects()
 
 if(!listenersReady){
 onMessage((data)=>{
@@ -260,6 +266,22 @@ retry_pending: 0
 renderTable(getFilteredSiswa())
 }
 
+if(data.type === "connected"){
+currentWhatsAppStatus = "connected"
+}
+
+if(data.type === "disconnected"){
+currentWhatsAppStatus = "disconnected"
+}
+
+if(data.type === "status"){
+currentWhatsAppStatus = data.data || "disconnected"
+}
+
+if(data.type === "reconnecting"){
+currentWhatsAppStatus = "reconnecting"
+}
+
 if(data.type === "blast_progress"){
 if(!currentRunId || data.run_id !== currentRunId){
 return
@@ -296,12 +318,16 @@ description: `${data.success || 0} berhasil, ${data.failed || 0} gagal final, ${
 })
 
 showBlastResult(data)
-resetProgressLater()
+resetActivityLater()
 }
 
 if(data.type === "blast_error"){
 setStartButtonState(false)
-alert(data.message || "Blast gagal dijalankan")
+alertDialog({
+title: "Blast Gagal Dijalankan",
+message: data.message || "Terjadi kendala saat memulai proses blast.",
+variant: "danger"
+})
 resetProgressState()
 }
 
@@ -355,6 +381,7 @@ ${k}
 `).join("")
 
 filterKelas.value = selectedKelas
+refreshCustomSelect(filterKelas)
 
 }
 
@@ -431,8 +458,28 @@ window.startBlast = async function(){
 
 const templateId = localStorage.getItem("template")
 
+if(currentWhatsAppStatus !== "connected"){
+await alertDialog({
+title: "WhatsApp Belum Terhubung",
+message: "Login atau scan QR terlebih dahulu sebelum memulai blast.",
+variant: "danger"
+})
+return
+}
+
 if(!templateId){
-alert("Pilih template aktif terlebih dahulu")
+await alertDialog({
+title: "Template Belum Dipilih",
+message: "Pilih template aktif terlebih dahulu sebelum memulai blast."
+})
+return
+}
+
+if(!siswa.length){
+await alertDialog({
+title: "Data Siswa Belum Ada",
+message: "Upload data siswa terlebih dahulu sebelum memulai blast."
+})
 return
 }
 
@@ -441,10 +488,24 @@ keepRun: false,
 note: "Menyiapkan blast..."
 })
 
+try{
+
 await api("/blast/start","POST",{
 template_id:templateId,
 kelas:filterKelas.value
 })
+
+}catch(err){
+
+await alertDialog({
+title: "Blast Belum Bisa Dimulai",
+message: err.message || "WhatsApp belum terhubung atau proses tidak bisa dijalankan saat ini.",
+variant: "danger"
+})
+
+resetProgressState()
+
+}
 
 }
 
@@ -491,7 +552,7 @@ return "Blast selesai diproses"
 }
 
 if(phase === "retry"){
-return "Auto retry sedang merapikan nomor yang gagal"
+return "Auto retry pesan yang gagal terkirim"
 }
 
 if(current <= 0){
@@ -529,7 +590,7 @@ if(phase === "retry") return "Auto Retry"
 if(phase === "prepare") return "Menyiapkan"
 if(phase === "initial") return "Mengirim"
 
-return "Menunggu mulai"
+return "-"
 
 }
 
@@ -711,7 +772,7 @@ heroMetric.innerText = "0%"
 heroTitle.innerText = "Siap memulai blast WhatsApp"
 heroSubtitle.innerText =
 "Pilih kelas target, cek daftar penerima, lalu mulai blast. Sistem akan mengirim bertahap dengan delay acak dan auto retry di akhir antrean."
-heroStatus.innerText = "Menunggu mulai"
+heroStatus.innerText = "-"
 progressMeta.innerText = "Belum ada blast berjalan."
 estimate.innerText = "-"
 
@@ -739,10 +800,11 @@ startButton.innerText = isRunning
 }
 
 
-function resetProgressLater(){
+function resetActivityLater(){
 
 resetTimer = setTimeout(()=>{
-resetProgressState()
+activityItems = []
+renderActivityFeed()
 },4500)
 
 }

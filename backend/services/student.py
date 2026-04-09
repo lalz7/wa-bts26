@@ -29,21 +29,37 @@ def delete_all(db):
 
 
 def create_many(db, data):
-
-    delete_all(db)
+    created = 0
+    updated = 0
 
     for row in data:
 
-        siswa = Siswa(
-            id=row["id"],
-            nama=row["nama"],
-            kelas=row["kelas"],
-            no_hp=normalize_number(row["no_hp"])
-        )
+        siswa = db.query(Siswa).filter(
+            Siswa.id == row["id"]
+        ).first()
 
-        db.add(siswa)
+        if siswa:
+            siswa.nama = row["nama"]
+            siswa.kelas = row["kelas"]
+            siswa.no_hp = normalize_number(row["no_hp"])
+            updated += 1
+        else:
+            siswa = Siswa(
+                id=row["id"],
+                nama=row["nama"],
+                kelas=row["kelas"],
+                no_hp=normalize_number(row["no_hp"])
+            )
+
+            db.add(siswa)
+            created += 1
 
     db.commit()
+
+    return {
+        "created": created,
+        "updated": updated
+    }
 
 
 def update_pdf(db, id, file):
@@ -63,5 +79,14 @@ def delete(db, id):
     db.query(Siswa).filter(
         Siswa.id == id
     ).delete()
+
+    db.commit()
+
+
+def clear_pdf(db):
+
+    db.query(Siswa).update({
+        Siswa.pdf: None
+    })
 
     db.commit()
