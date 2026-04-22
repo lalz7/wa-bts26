@@ -1,4 +1,4 @@
-const BASE = "http://127.0.0.1:8000"
+const BASE = "http://127.0.0.1:1602"
 
 
 export async function api(url, method = "GET", data = null){

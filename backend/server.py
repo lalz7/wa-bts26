@@ -38,3 +38,8 @@ def root():
 @app.on_event("startup")
 async def startup():
     asyncio.create_task(worker())
+
+if __name__ == "__main__":
+    import uvicorn
+    # Sesuaikan port dengan yang ada di index.js
+    uvicorn.run(app, host="127.0.0.1", port=1602)

@@ -1,6 +1,6 @@
 {
   "name": "desktop",
-  "version": "1.0.",
+  "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -37,6 +37,7 @@
         "filter": [
           "**/*",
           "!__pycache__{,/**}",
+          "!venv{,/**}",
           "!storage{,/**}",
           "!database.db"
         ]

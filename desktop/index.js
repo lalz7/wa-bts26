@@ -1,20 +1,17 @@
 const fs = require("fs")
 const path = require("path")
 const { spawn } = require("child_process")
-
 const { app, BrowserWindow } = require("electron")
 
 const APP_ICON = path.join(__dirname, "assets", "icon.ico")
-const BACKEND_PORT = 8000
+const BACKEND_PORT = 1602
 const BACKEND_HTTP_URL = `http://127.0.0.1:${BACKEND_PORT}`
 
 let mainWindow = null
 let backendProcess = null
 let gatewayProcess = null
 
-
 function getPaths(){
-
     const resourcesBase = app.isPackaged
     ? process.resourcesPath
     : path.resolve(__dirname, "..")
@@ -23,6 +20,16 @@ function getPaths(){
         frontendDir: path.join(resourcesBase, "frontend"),
         backendDir: path.join(resourcesBase, "backend"),
         gatewayDir: path.join(resourcesBase, "wa-gateway"),
+        
+        // Path untuk Mode Production (Installer Client)
+        backendExe: path.join(
+            resourcesBase,
+            "backend",
+            "dist",
+            "wa-backend.exe"
+        ),
+        
+        // Path untuk Mode Development (npm run dev)
         pythonExe: path.join(
             resourcesBase,
             "backend",
@@ -30,6 +37,7 @@ function getPaths(){
             "Scripts",
             "python.exe"
         ),
+        
         gatewayScript: path.join(
             resourcesBase,
             "wa-gateway",
@@ -45,42 +53,30 @@ function getPaths(){
             "data"
         )
     }
-
 }
 
-
 function getChildEnv(){
-
     const paths = getPaths()
-
     fs.mkdirSync(paths.dataDir, { recursive: true })
 
     return {
         ...process.env,
         WA_BTS26_DATA_DIR: paths.dataDir,
-        WA_BTS26_BACKEND_WS_URL: "ws://127.0.0.1:8000/wa"
+        WA_BTS26_BACKEND_WS_URL: `ws://127.0.0.1:${BACKEND_PORT}/wa`
     }
-
 }
 
-
 function pipeLogs(prefix, child){
-
     child.stdout.on("data", (data)=>{
         console.log(`[${prefix}] ${data}`.trim())
     })
-
     child.stderr.on("data", (data)=>{
         console.error(`[${prefix}] ${data}`.trim())
     })
-
 }
 
-
 function showStartupError(error){
-
-    const message =
-    error?.message || String(error)
+    const message = error?.message || String(error)
 
     mainWindow = new BrowserWindow({
         width: 900,
@@ -111,45 +107,55 @@ function showStartupError(error){
         "data:text/html;charset=UTF-8," +
         encodeURIComponent(html)
     )
-
 }
 
-
 function escapeHtml(text){
-
     return String(text)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
-
 }
 
-
 function startBackend(){
-
     if(backendProcess) return
 
     const paths = getPaths()
 
-    backendProcess = spawn(
-        paths.pythonExe,
-        [
-            "-m",
-            "uvicorn",
-            "server:app",
-            "--app-dir",
-            paths.backendDir,
-            "--host",
-            "127.0.0.1",
-            "--port",
-            String(BACKEND_PORT)
-        ],
-        {
-            cwd: paths.backendDir,
-            env: getChildEnv(),
-            stdio: "pipe"
-        }
-    )
+    if (app.isPackaged) {
+        // === MODE PRODUCTION (CLIENT) ===
+        // Langsung menjalankan file .exe mandiri hasil PyInstaller
+        backendProcess = spawn(
+            paths.backendExe,
+            [], 
+            {
+                cwd: paths.backendDir,
+                env: getChildEnv(),
+                stdio: "pipe"
+            }
+        )
+    } else {
+        // === MODE DEVELOPMENT ===
+        // Menjalankan Uvicorn via Python Venv untuk keperluan live-coding / npm run dev
+        backendProcess = spawn(
+            paths.pythonExe,
+            [
+                "-m",
+                "uvicorn",
+                "server:app",
+                "--app-dir",
+                paths.backendDir,
+                "--host",
+                "127.0.0.1",
+                "--port",
+                String(BACKEND_PORT)
+            ],
+            {
+                cwd: paths.backendDir,
+                env: getChildEnv(),
+                stdio: "pipe"
+            }
+        )
+    }
 
     pipeLogs("backend", backendProcess)
 
@@ -157,17 +163,13 @@ function startBackend(){
         console.log(`Backend exited with code ${code}`)
         backendProcess = null
     })
-
 }
-
 
 function startGateway(){
     if(gatewayProcess) return
     const paths = getPaths()
 
     gatewayProcess = spawn(
-        // Menggunakan process.execPath saat unpackaged, 
-        // tapi pastikan mengarah ke node exe yang benar di production
         app.isPackaged ? process.execPath : "node", 
         [paths.gatewayScript],
         {
@@ -186,12 +188,9 @@ function startGateway(){
         console.log(`Gateway exited with code ${code}`)
         gatewayProcess = null
     })
-
 }
 
-
-async function waitForBackend(timeoutMs = 30000){
-
+async function waitForBackend(timeoutMs = 90000){
     const startedAt = Date.now()
 
     while(Date.now() - startedAt < timeoutMs){
@@ -208,9 +207,7 @@ async function waitForBackend(timeoutMs = 30000){
     }
 
     throw new Error("Backend failed to start in time")
-
 }
-
 
 function createWindow(){
     const paths = getPaths()
@@ -222,8 +219,8 @@ function createWindow(){
         minHeight: 700,
         icon: APP_ICON,
         autoHideMenuBar: true,
-        show: false, // 1. Mulai dengan keadaan tersembunyi
-        backgroundColor: "#f5f7fb", // 2. Set warna background yang sama dengan CSS body kamu
+        show: false,
+        backgroundColor: "#f5f7fb",
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false
@@ -232,7 +229,6 @@ function createWindow(){
 
     mainWindow.loadFile(paths.frontendIndex)
 
-    // 3. Tampilkan window hanya saat konten sudah 'siap saji'
     mainWindow.once("ready-to-show", () => {
         mainWindow.maximize()
         mainWindow.show()
@@ -244,9 +240,7 @@ function createWindow(){
     })
 }
 
-
 function stopChildProcesses(){
-
     if(gatewayProcess){
         gatewayProcess.kill()
         gatewayProcess = null
@@ -256,9 +250,7 @@ function stopChildProcesses(){
         backendProcess.kill()
         backendProcess = null
     }
-
 }
-
 
 app.whenReady().then(async()=>{
     try{
@@ -282,7 +274,6 @@ app.whenReady().then(async()=>{
             }
         }
     })
-
 })
 
 app.on("window-all-closed", ()=>{

@@ -2,7 +2,7 @@ const WebSocket = require("ws")
 
 const BACKEND_WS_URL =
 process.env.WA_BTS26_BACKEND_WS_URL ||
-"ws://127.0.0.1:8000/wa"
+"ws://127.0.0.1:1602/wa"
 
 let socket = null
 
