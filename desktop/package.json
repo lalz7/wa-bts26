@@ -5,8 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev:electron": "electron .",
-    "dev": "npm run dev:electron",
-    "build": "electron-builder --win nsis",
+    "dev": "taskkill /F /IM wa-backend.exe /T /FI \"STATUS eq RUNNING\" 2>nul & taskkill /F /IM python.exe /T /FI \"STATUS eq RUNNING\" 2>nul & electron .",    "build": "electron-builder --win nsis",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

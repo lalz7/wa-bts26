@@ -1,5 +1,5 @@
 import { api, upload } from "../services/api.js"
-import { confirmDialog } from "../services/dialog.js"
+import { confirmDialog, alertDialog, instructionDialog } from "../services/dialog.js"
 import { enhanceCustomSelects, refreshCustomSelect } from "../services/custom-select.js"
 
 let students = []
@@ -88,6 +88,7 @@ Masukkan file sumber terbaru sebelum mengecek hasilnya di tabel.
 <div class="siswa-upload-kicker">Langkah 1</div>
 <div class="section-title">Upload Excel Siswa</div>
 <div class="section-subtitle">Import data siswa terbaru. File ini akan menggantikan data sebelumnya.</div>
+<button type="button" onclick="showExcelInstructions()" class="text-sm text-blue-600 hover:underline mt-2">Lihat instruksi kolom Excel</button>
 </div>
 </div>
 
@@ -111,6 +112,7 @@ Upload Excel
 <div class="siswa-upload-kicker">Langkah 2</div>
 <div class="section-title">Upload ZIP Invoice</div>
 <div class="section-subtitle">Unggah ZIP PDF agar invoice otomatis dicocokkan ke data siswa aktif.</div>
+<button type="button" onclick="showPdfInstructions()" class="text-sm text-blue-600 hover:underline mt-2">Lihat format nama PDF</button>
 </div>
 </div>
 
@@ -425,6 +427,57 @@ zipError.innerText = ""
 
 loadSiswa()
 
+}
+
+window.showExcelInstructions = async function(){
+await instructionDialog({
+ title: "Instruksi Kolom Excel",
+ content: `
+<p>Format Excel harus memiliki kolom berikut:</p>
+<table class="instruction-table">
+<thead>
+<tr>
+<th>id</th>
+<th>nama</th>
+<th>kelas</th>
+<th>no_hp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>101</td>
+<td>Siswa A</td>
+<td>10A</td>
+<td>08123456789</td>
+</tr>
+</tbody>
+</table>
+`
+})
+}
+
+window.showPdfInstructions = async function(){
+await instructionDialog({
+ title: "Format Nama PDF",
+ content: `
+<div class="pdf-instruction">
+<p class="pdf-desc">File PDF di ZIP harus diawali ID siswa.</p>
+<div class="pdf-examples">
+<div class="pdf-example-item">
+<svg class="pdf-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M14 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8L14 2Z" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M14 2V8H20" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M16 13H8" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M16 17H8" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M10 9H8" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span class="pdf-name">101. Nama Siswa.pdf</span>
+</div>
+</div>
+<p class="pdf-note">Sistem akan cocokkan angka awal dengan ID siswa.</p>
+</div>
+`
+})
 }
 
 

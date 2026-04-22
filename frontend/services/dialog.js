@@ -90,6 +90,47 @@ close()
 }
 
 
+export function instructionDialog({
+title = "Instruksi",
+content = ""
+} = {}){
+
+return new Promise((resolve)=>{
+
+const overlay = document.createElement("div")
+overlay.className = "confirm-overlay"
+
+overlay.innerHTML = `
+<div class="confirm-dialog">
+<div class="confirm-title">${escapeHtml(title)}</div>
+<div class="confirm-content">${content}</div>
+<div class="confirm-actions">
+<button class="btn btn-sm template-btn-accent confirm-ok">Mengerti</button>
+</div>
+</div>
+`
+
+document.body.appendChild(overlay)
+
+const close = ()=>{
+overlay.remove()
+resolve(true)
+}
+
+overlay.querySelector(".confirm-ok")
+.addEventListener("click", close)
+
+overlay.addEventListener("click", (event)=>{
+if(event.target === overlay){
+close()
+}
+})
+
+})
+
+}
+
+
 function escapeHtml(text){
 
 return String(text)
